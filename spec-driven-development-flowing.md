@@ -46,31 +46,60 @@ prerequisites first — flowing has nothing to harden otherwise.
   reason to, but if a constitution exists it is enforced by every plan and tasks check.
 - SpecKit itself — skills, templates, config — must already be installed in the project.
 
+**Required integrations (configure once per project):**
+
+- **Jira** — flowing creates the tickets (step 1) through a real Jira integration. Configure the
+  connection and project mapping before flowing. If Jira is not configured, flowing does **not**
+  stop immediately — it **first asks whether to skip Jira**. If you choose to skip, flowing
+  continues without creating tickets; otherwise it stops at step 1 with a clear message so you
+  can configure Jira.
+- **Slack** — `/speckit.slack`, for `NEEDS-HUMAN` escalation only. If it is not configured,
+  flowing surfaces those items to the human directly instead of failing.
+
 ---
 
 ## The idea in one picture
 
 ```
-   prerequisites:  /speckit.thinking → [/speckit.constitution] → /speckit.specify → [/speckit.checklist]
-                              │
-                              ▼   (this command, /speckit.flowing)
-   Jira tickets (design.md + brd.md)
-        → ac-loop   (analyze → clarify → analyze)                          ✓
-        → plan   → analyze(plan.md)  → clarify → acp-loop                  ✓
-        → tasks  → analyze(tasks.md) → clarify → acpt-loop                 ✓
-   ┌──→ implement → analyze → clarify
-   │              → generate tests (tdd.md) ▸ run tests
-   │              → verify code vs dod/design/brd/bdd/tdd/questions
-   │    → /review  ▸  /code-review   (loop ×2+)
-   │                          │
-   └──── any bug/gap?  copy → /speckit.analyze → clarify → acpt-loop ──────┘
-                              ▼
-   all loops + reviews clean → done
-```
+        PREREQUISITES  —  done before flowing (see the table above)
+   ══════════════════════════════════════════════════════════════════════
+   /speckit.thinking → [/speckit.constitution] → /speckit.specify → [/speckit.checklist]
+   ⇒  spec.md  +  thinking docs:  brd · design · bdd · tdd · dod · questions
+                                    │
+                                    ▼   run  /speckit.flowing
+   ═══════════════  PART 1 · TICKETS + SPEC  ════════════════════════════
+   [1] preflight — are spec.md AND the thinking docs present?
+          ├─ NO  →  STOP: run the missing prerequisite first
+          └─ YES →  create Jira tickets  ← brd.md (Stories) + design.md (Tasks)
+                    Jira not configured?  ask "skip Jira?"  →  skip | STOP
+   [2] ac-loop on spec.md:   ( analyze → clarify )  ↺  until CLEAN  (min 3×)
+                                    │
+                                    ▼
+   ═══════════════  PART 2 · PLAN  ══════════════════════════════════════
+   [3] /speckit.plan  →  plan.md  (+ research, data-model, contracts)
+       acp-loop:   ( analyze(plan.md) → clarify )×2 → plan   ↺  until CLEAN (min 3×)
+                                    │
+                                    ▼
+   ═══════════════  PART 3 · TASKS  ═════════════════════════════════════
+   [4] /speckit.tasks  (input: Jira tickets)  →  tasks.md
+       acpt-loop:  ( analyze(tasks.md) → clarify )×2 → plan → tasks  ↺  CLEAN (min 3×)
+                                    │
+                                    ▼
+   ═════════  PART 4 + 5 · IMPLEMENT · VERIFY · REVIEW  ══════════════════
+   one re-entrant loop — any bug/gap sends you back to [5]
 
-**Main rule:** check each made file **yourself** before the next step. A small mistake early
-becomes a big mistake later. The made files (plan, tasks) are easy to throw away — **the spec
-is the source.** Fix from the spec down, never as a quick code patch.
+    ┌─▶ [5]  implement → analyze(with implementation) → clarify
+    │   [6]  generate tests (tdd.md) DURING implement → run → Red ⇒ Green
+    │   [7]  verify code vs  dod · design · brd · bdd · tdd · questions
+    │   [8]  /review  →  [9] /code-review  →  [10] repeat reviews (≥2×)
+    │              │
+    │        any bug / gap?  ─── NO ──▶  all gates CLEAN  ──▶  ✅ DONE
+    │              │ YES
+    │              ▼
+    └── RECOVERY:  copy finding → analyze(finding) → clarify → acpt-loop  (back to [5])
+
+   CLEAN = analyze: no bugs / no gaps   AND   clarify: no open questions
+```
 
 ---
 
@@ -81,7 +110,22 @@ questions are **not yours to answer.** They move through `specs/<slug>/questions
 append-only **mailbox**. The file is the **truth**; the message you get back is only a copy of
 the latest round. This is the flowing side of the protocol that
 `spec-driven-development-answering.md` describes; both documents must say the same thing in the
-same terms.
+same terms. (`/speckit.answering` is the **answering job of `/speckit.thinking`** — that is why
+its rounds are tagged `by: thinking`.)
+
+**Flowing wraps the stock clarify — it does not fork it.** `/speckit.clarify` is normally
+interactive (it asks the human up to five questions and writes the answers into `spec.md`).
+Flowing keeps that command unchanged and puts a wrapper around it: it **intercepts** each
+question clarify would put to the human, writes it as a `PENDING` round, calls
+`/speckit.answering`, and feeds the `ANSWERED` answers back into clarify **as if they were the
+human's replies** — so clarify encodes them into `spec.md` exactly as usual. Only `NEEDS-HUMAN`
+items ever reach a person (via Slack).
+
+**Both `/speckit.clarify` and `/speckit.flowing` must wait for `/speckit.answering` to answer.**
+Nothing advances while a round is still `PENDING`: clarify holds each question open until its
+answer comes back, and flowing does not move to the next step until `/speckit.answering` has
+appended the matching `ANSWERED` round to `questions.md`. No proceeding on an unanswered
+question, and no guessing while you wait.
 
 1. **Do not** answer questions yourself, and **do not** ask the human first.
 2. **Write a `PENDING` round** into `specs/<slug>/questions.md` — a fixed header plus numbered
@@ -125,42 +169,43 @@ The flow below is built from three named loops. Each runs **analyze first** (so 
 about real problems, not guesses), routes every question through `/speckit.answering`, and keeps
 **repeating its cycle until a full pass of analyze and clarify returns no bugs and no gaps**.
 Run each loop a **minimum of 3 cycles**, even if an early cycle looks clean — later passes catch
-what early ones miss. "Clean" means analyze reports no bugs **and** no gaps, **and** clarify has
-no open questions.
+what early ones miss. "Clean" means analyze reports **no bugs and no gaps**, and clarify has
+**no open questions**.
 
 ### `ac-loop` — spec only
 ```
-analyze → clarify → analyze            (repeat the cycle until clean; min 3×)
+cycle = ( analyze → clarify )            (repeat the cycle until clean; min 3×)
 ```
 The lightest loop: tighten `spec.md` alone, before any plan or tasks exist. Used right after the
-Jira tickets are made.
+Jira tickets are made. **The cycle is `analyze → clarify`**, repeated until clean.
 
 ### `acp-loop` — spec + plan
 ```
-(analyze → clarify) ×2 → plan → analyze        (repeat the cycle until clean; min 3×)
+cycle = ( (analyze → clarify) ×2 → plan )        (repeat the cycle until clean; min 3×)
 ```
-- Run **analyze → clarify twice** at the top of each cycle, then regenerate the **plan**, then
-  analyze again.
+- **The cycle is `(analyze → clarify) ×2 → plan`.** Run **analyze → clarify twice** at the top
+  of each cycle, then regenerate the **plan**, then **run the cycle again**.
 - **Skip `plan`** in a cycle when clarify **did not change `spec.md`** — there is nothing new
   for the plan to absorb, so re-running it would only churn the file. Fix the cause (the spec),
   not the result (the plan).
 
 ### `acpt-loop` — spec + plan + tasks
 ```
-(analyze → clarify) ×2 → plan → tasks → analyze        (repeat the cycle until clean; min 3×)
+cycle = ( (analyze → clarify) ×2 → plan → tasks )        (repeat the cycle until clean; min 3×)
 ```
-- Run **analyze → clarify twice**, then regenerate **plan**, then **tasks**, then analyze again.
+- **The cycle is `(analyze → clarify) ×2 → plan → tasks`.** Run **analyze → clarify twice**,
+  then regenerate **plan**, then **tasks**, then **run the cycle again**.
 - **Skip `plan`** when clarify **did not change `spec.md`** (same rule as `acp-loop`).
 - **Skip `tasks`** when `plan` was **skipped** *or* `plan` **did not change `plan.md`** — with no
   plan change there are no new tasks to regenerate.
 
 **Skip-rule summary (per cycle):**
 
-| In this cycle, clarify changed `spec.md`? | plan changed `plan.md`? | Re-run `plan`? | Re-run `tasks`? |
-|---|---|---|---|
-| yes | yes | yes | yes |
-| yes | no  | yes | no |
-| no  | —   | no  | no |
+| In this cycle, clarify changed `spec.md`? | Re-run `plan`? | plan changed `plan.md`? | Re-run `tasks`? |
+| ----------------------------------------- | -------------- | ----------------------- | --------------- |
+| yes                                       | yes            | yes                     | yes             |
+| yes                                       | yes            | no                      | no              |
+| no                                        | no             | n/a                     | no              |
 
 In every loop the made files are **regenerated, never hand-patched**: if the plan or tasks are
 wrong, fix the spec and make them again.
@@ -169,15 +214,36 @@ wrong, fix the spec and make them again.
 
 ## Part 1 — Tickets and the spec
 
+Part 1 is where **`/speckit.flowing` actually begins** — it picks up exactly where the picture
+above hands off, **right after the prerequisites**
+(`/speckit.thinking → [/speckit.constitution] → /speckit.specify → [/speckit.checklist]`) have
+produced `spec.md` and the thinking docs, and after the **required integrations** (Jira, Slack)
+are configured — or you have chosen to skip Jira. None of that is re-run here; flowing only
+**reads** those inputs. Because everything downstream depends on them, Part 1 **opens by
+re-confirming they are all present** (the preflight in step 1) before doing any work.
+
 ### 1. Make the Jira tickets — the first step
+**Preflight (hard stop).** Before doing anything else, re-confirm the entry conditions from
+*Before you start* are met: **`spec.md`** and **all the thinking documents** (`brd.md`,
+`design.md`, `bdd.md`, `tdd.md`, `dod.md`, `questions.md`) exist. If any is missing, **STOP the
+whole process here in step 1** and run the missing prerequisite first (`/speckit.specify` for a
+missing `spec.md`, `/speckit.thinking` for missing thinking docs). Do not create tickets or run
+any loop until they are all present.
+
 **What it is.** Turn the agreed scope into real work. This is the **very first action of
-flowing**. Make tickets from **`brd.md`** (the business parts) and **`design.md`** (the
-technical parts), so the plan and tasks below map onto real tickets.
-- Cover both: business needs from `brd.md`, technical work from `design.md`.
+flowing**. Make **Jira** tickets from **`brd.md`** (the business parts) and **`design.md`** (the
+technical parts) through the configured Jira integration, so the plan and tasks below map onto
+real tickets.
+- Cover both: business needs from `brd.md` (→ Stories), technical work from `design.md`
+  (→ Tasks/Sub-tasks).
+- Carry the SpecKit source ref (e.g. `brd.md R3`, `design.md §Contracts`) onto each ticket so it
+  is traceable back to the documents.
 - Keep the ticket IDs — `tasks.md` (Part 3) is matched back to these tickets.
+- If Jira is not configured, **ask first whether to skip Jira**: on **skip**, continue without
+  tickets; otherwise **stop here** and report it. Do not silently skip ticket creation.
 
 ### 2. Run the `ac-loop` on the spec
-**What it is.** With the tickets in place, run the **`ac-loop`** (`analyze → clarify → analyze`)
+**What it is.** With the tickets in place, run the **`ac-loop`** (cycle = `analyze → clarify`)
 on `spec.md` until analyze and clarify find no bugs and no gaps — **at least 3 cycles**. This is
 where the spec is hardened before any plan exists. Route every question through
 `/speckit.answering`.
@@ -193,22 +259,16 @@ contract files (checked against the constitution rules if present). Then:
 2. Run **`/speckit.clarify`** (questions → `/speckit.answering`).
 3. Enter the **`acp-loop`** until it comes back clean (min 3 cycles).
 
-Read **`spec.md`** when you re-check — if a gap is in the spec, fix the spec and let the loop
-skip `plan` that cycle (skip rule above).
-
 ---
 
 ## Part 3 — Tasks
 
 ### 4. Run tasks, then the `acpt-loop`
-**What it is.** Run **`/speckit.tasks`** to make `tasks.md` — ordered, grouped by user story,
-matched to the Jira tickets from Part 1. Then:
+**What it is.** Run **`/speckit.tasks`** with the **Jira tickets from Part 1 as input** to make
+`tasks.md` — ordered, grouped by user story, and matched back to those tickets. Then:
 1. Run **`/speckit.analyze` with `tasks.md`**.
 2. Run **`/speckit.clarify`** (questions → `/speckit.answering`).
 3. Enter the **`acpt-loop`** until it comes back clean (min 3 cycles).
-
-Keep fixing the spec, not the tasks; the loop regenerates plan and tasks for you (with the skip
-rules so it only regenerates what actually changed).
 
 ---
 
@@ -240,12 +300,35 @@ actual test code.
   **recovery path** (back to step 5).
 
 ### 7. Verify the code against the thinking documents
-**What it is.** Check the running implementation for any inconsistency with the thinking
-documents — **`dod.md`, `design.md`, `brd.md`, `bdd.md`, `tdd.md`, and `questions.md`.**
-- Each **BDD** Given/When/Then must match the code.
-- Each **DoD** gate must be honestly met, or shown as not done.
-- Nothing may contradict a recorded decision in `questions.md` or any thinking document.
-- On **any inconsistency**, copy the bug/gap and take the **recovery path** (back to step 5).
+**What it is.** Check the running implementation, document by document, for any inconsistency with
+the six thinking documents. Go through them **one at a time** — do not spot-check — and for each
+one confirm the code matches what the document records. Check them in this order:
+
+- **`brd.md` (why & what).** Walk every numbered business item — goals (`G#`), scope (`S#`),
+  functional requirements (`R#`), business rules (`BR#`), and success metrics (`M#`). Each must
+  be **actually built** in the code: every `R#` implemented, every `BR#` enforced, nothing that
+  is **out of scope** (`S#` "out") slipped in, and every `M#` measurable from what shipped. A
+  requirement with no corresponding code is a **gap**.
+- **`design.md` (how).** For each design decision, confirm the code uses the **named parts,
+  contracts (API/events), and data model** the document specifies — same endpoints, payloads,
+  field names, and error shapes — and that the **kill-switch / safe-off** path exists if the
+  design calls for one. Code that diverges from the design (different contract, missing toggle)
+  is a **bug**.
+- **`bdd.md` (Given/When/Then).** Take each scenario and its requirement tag (e.g. `@R3`) and
+  confirm the code produces exactly that behaviour — the **normal path and every edge case**.
+  Each Given/When/Then should map to a real, passing test or an observable behaviour. A scenario
+  with no matching behaviour is a **gap**.
+- **`tdd.md` (test plan + Red/Green).** Confirm every planned test exists as a **real test file**
+  (step 6), sits in the file the plan names, and that each test marked **Red** is now **Green**.
+  A missing or still-**Red** test is a **bug**.
+- **`dod.md` (done gates).** Go gate by gate: each must be **honestly met and evidenced**, or
+  explicitly **shown as not done** — never assumed. An unmet or unverifiable gate blocks "done".
+- **`questions.md` (recorded decisions).** Read every `ANSWERED` round and confirm the code
+  honours each recorded decision (values, roles, limits, conflicts resolved). Nothing in the
+  implementation may **contradict** a decision written here.
+
+On **any** inconsistency in **any** document, copy the exact bug/gap text and take the **recovery
+path** (back to step 5).
 
 ---
 
@@ -270,21 +353,23 @@ recovery path and restarts at step 5; the reviews only "pass" when a full `/revi
 
 ## Cheat sheet
 
-| Part | Step | Command / loop |
-|------|------|----------------|
-| pre | thinking docs | `/speckit.thinking <feature>` *(required)* |
-| pre | constitution | `/speckit.constitution` *(optional)* |
-| pre | spec | `/speckit.specify` (give `brd.md` + `design.md`) *(required)* |
-| pre | checklist | `/speckit.checklist <area>` *(optional)* |
-| 1 | Jira tickets | from `brd.md` + `design.md` (first step) |
-| 1 | Harden spec | **ac-loop**: `analyze → clarify → analyze` (min 3×) |
-| 2 | Plan | `/speckit.plan` → analyze(`plan.md`) → clarify → **acp-loop** (skip plan if spec unchanged) |
-| 3 | Tasks | `/speckit.tasks` → analyze(`tasks.md`) → clarify → **acpt-loop** (skip plan/tasks per rules) |
-| 4 | Implement | `/speckit.implement` → analyze → clarify |
-| 4 | Tests | generate from `tdd.md` → run → Red must be Green |
-| 4 | Verify | code vs `dod/design/brd/bdd/tdd/questions` |
-| 4–5 | Recovery path | any bug/gap → copy → `/speckit.analyze` → clarify → **acpt-loop** → back to step 5 |
-| 5 | Review | `/review` → `/code-review` → `/review` (full cycle min 2×) |
+| Part | Step | Name          | Command / loop                                                                                          |
+| ---- | ---- | ------------- | ------------------------------------------------------------------------------------------------------- |
+| pre  | —    | thinking docs | `/speckit.thinking <feature>` *(required)*                                                              |
+| pre  | —    | constitution  | `/speckit.constitution` *(optional)*                                                                    |
+| pre  | —    | spec          | `/speckit.specify` (give `brd.md` + `design.md`) *(required)*                                           |
+| pre  | —    | checklist     | `/speckit.checklist <area>` *(optional)*                                                                |
+| 1    | 1    | Jira tickets  | from `brd.md` + `design.md` (first step)                                                                |
+| 1    | 2    | Harden spec   | **ac-loop**: cycle = `analyze → clarify` (min 3×)                                                       |
+| 2    | 3    | Plan          | `/speckit.plan` → analyze(`plan.md`) → clarify → **acp-loop** (skip plan if spec unchanged)             |
+| 3    | 4    | Tasks         | `/speckit.tasks` (input: Jira tickets) → analyze(`tasks.md`) → clarify → **acpt-loop** (skip per rules) |
+| 4    | 5    | Implement     | `/speckit.implement` → analyze(with implementation) → clarify                                           |
+| 4    | 6    | Tests         | generate from `tdd.md` **during implement** → run → Red must be Green                                   |
+| 4    | 7    | Verify        | code vs `dod/design/brd/bdd/tdd/questions` (document by document)                                       |
+| 5    | 8    | Review        | `/review` → copy any finding → recovery                                                                 |
+| 5    | 9    | Code-review   | `/code-review` → copy any finding → recovery                                                            |
+| 5    | 10   | Loop reviews  | `/review` → `/code-review` → `/review` (full cycle min 2×)                                              |
+| 4–5  | rec  | Recovery path | any bug/gap → copy → `/speckit.analyze` → clarify → **acpt-loop** → back to step 5                      |
 
 ---
 
@@ -296,8 +381,9 @@ recovery path and restarts at step 5; the reviews only "pass" when a full `/revi
 2. **Three loops, analyze first.** `ac-loop` hardens the spec, `acp-loop` adds the plan,
    `acpt-loop` adds the tasks — each repeats until analyze and clarify are clean, minimum 3×,
    with the skip rules for unchanged `spec.md`/`plan.md`.
-3. **Questions go to `/speckit.answering`** — never answer from memory; the human only sees
-   `NEEDS-HUMAN` items, and the answer is written back into the documents first.
+3. **Questions go to `/speckit.answering`** — flowing wraps stock clarify and routes its
+   questions through the `questions.md` mailbox; never answer from memory. The human only sees
+   `NEEDS-HUMAN` items (via Slack), and the answer is written back into the documents first.
 4. **The made files are easy to throw away. The spec is the source.** Fix the spec, then
    regenerate plan and tasks — never hand-patch them.
 5. **One recovery path, always back to implement.** Tests, verification, `/review`, and
