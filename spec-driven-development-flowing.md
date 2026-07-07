@@ -46,15 +46,16 @@ prerequisites first — flowing has nothing to harden otherwise.
   reason to, but if a constitution exists it is enforced by every plan and tasks check.
 - SpecKit itself — skills, templates, config — must already be installed in the project.
 
-**Required integrations (configure once per project):**
+**Required integration (configure once per project):**
 
 - **Jira** — flowing creates the tickets (step 1) through a real Jira integration. Configure the
   connection and project mapping before flowing. If Jira is not configured, flowing does **not**
   stop immediately — it **first asks whether to skip Jira**. If you choose to skip, flowing
   continues without creating tickets; otherwise it stops at step 1 with a clear message so you
   can configure Jira.
-- **Slack** — `/speckit.slack`, for `NEEDS-HUMAN` escalation only. If it is not configured,
-  flowing surfaces those items to the human directly instead of failing.
+
+`NEEDS-HUMAN` questions need **no** integration — flowing asks the human **directly in Claude
+Code** (no external service). See *How questions work* below.
 
 ---
 
@@ -119,7 +120,7 @@ Flowing keeps that command unchanged and puts a wrapper around it: it **intercep
 question clarify would put to the human, writes it as a `PENDING` round, calls
 `/speckit.answering`, and feeds the `ANSWERED` answers back into clarify **as if they were the
 human's replies** — so clarify encodes them into `spec.md` exactly as usual. Only `NEEDS-HUMAN`
-items ever reach a person (via Slack).
+items ever reach a person, asked **directly in Claude Code**.
 
 **Both `/speckit.clarify` and `/speckit.flowing` must wait for `/speckit.answering` to answer.**
 Nothing advances while a round is still `PENDING`: clarify holds each question open until its
@@ -146,12 +147,11 @@ question, and no guessing while you wait.
 4. **Re-read `questions.md`** — not just the returned message — and feed the `ANSWERED` items
    into **`/speckit.clarify`** so they are written into `spec.md`.
 5. Items marked **`NEEDS-HUMAN`** (or **`CONFLICT / NEEDS-HUMAN`**) are the only ones that reach
-   a person. Each goes to **Slack as one message per question** (set up once via
-   `/speckit.slack`). The human's **first reply** is the answer. `/speckit.answering` **first**
-   writes that answer into the right document, and **only then** returns the question+answer to
-   flowing as a normal `ANSWERED` item — there is no re-asking, and the answer never disagrees
-   with the documents (see `spec-driven-development-answering.md`). If Slack is not configured,
-   surface the item to the human directly.
+   a person. Each is asked **directly to the human in Claude Code**, one question at a time. The
+   human's **reply** is the answer. `/speckit.answering` **first** writes that answer into the
+   right document, and **only then** returns the question+answer to flowing as a normal
+   `ANSWERED` item — there is no re-asking, and the answer never disagrees with the documents
+   (see `spec-driven-development-answering.md`).
 
 Every round stays in `questions.md`, so you always have a record of what was asked and how it
 was resolved.
@@ -217,8 +217,8 @@ wrong, fix the spec and make them again.
 Part 1 is where **`/speckit.flowing` actually begins** — it picks up exactly where the picture
 above hands off, **right after the prerequisites**
 (`/speckit.thinking → [/speckit.constitution] → /speckit.specify → [/speckit.checklist]`) have
-produced `spec.md` and the thinking docs, and after the **required integrations** (Jira, Slack)
-are configured — or you have chosen to skip Jira. None of that is re-run here; flowing only
+produced `spec.md` and the thinking docs, and after the **Jira integration** is configured — or
+you have chosen to skip Jira. None of that is re-run here; flowing only
 **reads** those inputs. Because everything downstream depends on them, Part 1 **opens by
 re-confirming they are all present** (the preflight in step 1) before doing any work.
 
@@ -383,7 +383,8 @@ recovery path and restarts at step 5; the reviews only "pass" when a full `/revi
    with the skip rules for unchanged `spec.md`/`plan.md`.
 3. **Questions go to `/speckit.answering`** — flowing wraps stock clarify and routes its
    questions through the `questions.md` mailbox; never answer from memory. The human only sees
-   `NEEDS-HUMAN` items (via Slack), and the answer is written back into the documents first.
+   `NEEDS-HUMAN` items (asked directly in Claude Code), and the answer is written back into the
+   documents first.
 4. **The made files are easy to throw away. The spec is the source.** Fix the spec, then
    regenerate plan and tasks — never hand-patch them.
 5. **One recovery path, always back to implement.** Tests, verification, `/review`, and
