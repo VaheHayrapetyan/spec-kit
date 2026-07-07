@@ -4,8 +4,8 @@
 > documents, is in `spec-driven-development-thinking.md`).
 > `/speckit.flowing` calls this job when SpecKit's `analyze`/`clarify` raises a question.
 > You answer **only from the thinking documents** — never from memory — log every round in
-> `questions.md`, and send anything the documents can't answer (`NEEDS-HUMAN`) to the team's
-> Slack group.
+> `questions.md`, and hand anything the documents can't answer (`NEEDS-HUMAN`) straight to the
+> human, asked **directly in Claude Code**.
 
 ---
 
@@ -66,8 +66,8 @@ answer it, mark `NEEDS-HUMAN` rather than filling from general knowledge.
    exactly what is missing and which document should hold it.
 6. **Never invent** scope, rules, numbers, or decisions. Answering is read-only by default.
 
-Every item you mark **`NEEDS-HUMAN`** or **`CONFLICT / NEEDS-HUMAN`** must also be **sent to the
-team's Slack group** — see *Escalating NEEDS-HUMAN to Slack* below.
+Every item you mark **`NEEDS-HUMAN`** or **`CONFLICT / NEEDS-HUMAN`** must be **asked directly to
+the human in Claude Code** — see *Escalating NEEDS-HUMAN to the human* below.
 
 ---
 
@@ -81,40 +81,32 @@ otherwise hand the recommendation back so the human decides.
 
 ---
 
-## Escalating NEEDS-HUMAN to Slack
+## Escalating NEEDS-HUMAN to the human
 
-A `NEEDS-HUMAN` item is a question the documents cannot answer — it needs a real person. Each
-one goes to the team's Slack group, the human replies, and the answer is fed back into the
-documents so the question can be answered from them next time.
+A `NEEDS-HUMAN` item is a question the documents cannot answer — it needs a real person. Ask it
+**directly in Claude Code**: put the question to the human in the session, they reply, and the
+answer is fed back into the documents so the question can be answered from them next time. No
+external service is involved.
 
-**Setup (once per project).** The user runs **`/speckit.slack`** to initialize the Slack group
-— it stores the destination (channel / webhook / token) in the project config, e.g.
-`.specify/slack.json`. This is a one-time step; the agents only **read** that config. If it is
-not configured, do **not** fail: note in the returned summary that Slack is not set up (the
-user should run `/speckit.slack`) and surface the `NEEDS-HUMAN` items to the human directly.
-
-**1. Send — one question = one message.**
+**1. Ask — one question at a time.**
 After you write the `ANSWERED` round to `questions.md`, take every item marked `NEEDS-HUMAN` or
-`CONFLICT / NEEDS-HUMAN` and post **a separate Slack message for each one** (never grouped).
-Each message carries the feature slug, the round and question ID, the question, the reason it
-needs a human, and which document should hold the answer. Record each message's id/permalink
-next to its item in `questions.md` so the reply can be matched back. Answered items are **not**
-sent — only the ones that need a human.
+`CONFLICT / NEEDS-HUMAN` and **ask the human directly in Claude Code, one question per prompt**
+(never grouped). Each prompt carries the feature slug, the round and question ID, the question,
+the reason it needs a human, and which document should hold the answer. Answered items are
+**not** asked — only the ones that need a human.
 
 ```
-🟠 SpecKit needs a human — feature 003-account-delete · round 2 · Q4
+SpecKit needs a human — feature 003-account-delete · round 2 · Q4
 CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
-Reply to this message with the answer.
 ```
 
-**2. Answer — the first reply is the answer.**
-The **first reply** to a question's message is taken as the human's answer. One message holds
-one question, so one reply resolves exactly one item — no ambiguity about which answer maps to
-which question.
+**2. Answer — the human's reply is the answer.**
+The human's reply in the session is taken as the answer. One prompt holds one question, so one
+reply resolves exactly one item — no ambiguity about which answer maps to which question.
 
 **3. Apply — update the documents first, then answer flowing.**
 When the human replies, the **answering agent** does these **in order**:
-1. **Read the first reply** — that is the human's answer (there is no re-asking).
+1. **Read the reply** — that is the human's answer (there is no re-asking).
 2. **First, run the thinking agent** to write that question and answer into the right document
    (e.g. set the value in `design.md`, resolve the conflict in `brd.md`) using the review loop,
    so the documents now contain the decision.
@@ -178,5 +170,5 @@ it (not the returned text) is the authoritative record.
 3. **A conflict between documents is a bug** — mark `CONFLICT / NEEDS-HUMAN`, never pick silently.
 4. **Never patch a document mid-answer** — recommend the fix and let the review loop handle it.
 5. **Every round is logged in `questions.md`** — append, never overwrite; the file is the truth.
-6. **Every `NEEDS-HUMAN` goes to Slack** — the group set up once via `/speckit.slack`; if it
-   isn't configured, say so and surface the items to the human instead.
+6. **Every `NEEDS-HUMAN` is asked directly to the human in Claude Code** — one question per
+   prompt; the reply is written back into the documents first, then handed to flowing.
