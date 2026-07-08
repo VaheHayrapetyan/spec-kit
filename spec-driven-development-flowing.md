@@ -114,13 +114,26 @@ the latest round. This is the flowing side of the protocol that
 same terms. (`/speckit.answering` is the **answering job of `/speckit.thinking`** — that is why
 its rounds are tagged `by: thinking`.)
 
+**Turn `analyze` findings into fixes.** `/speckit.analyze` reports **defects** — missing,
+contradictory, untraceable, or unmeasurable items — not questions, and `/speckit.clarify` scans
+the spec on its own, so nothing closes an analyze finding by itself. Route each finding **by its
+cause**: a **spec-level** finding (something `spec.md` is missing or contradicts) is restated as a
+question — *"how should `spec.md` resolve `<finding>`?"* — sent through the mailbox below, and
+`/speckit.clarify` writes the answer into `spec.md`; a **made-file-level** finding (a
+`plan.md`/`tasks.md` item that just doesn't match an already-correct spec) needs **no** question —
+the loop **regenerates** that file, which closes it (and if regeneration doesn't clear it, it was
+spec-level after all, so route it as a question). A loop is only **clean** once analyze has **no
+findings left**.
+
 **Flowing wraps the stock clarify — it does not fork it.** `/speckit.clarify` is normally
 interactive (it asks the human up to five questions and writes the answers into `spec.md`).
 Flowing keeps that command unchanged and puts a wrapper around it: it **intercepts** each
 question clarify would put to the human, writes it as a `PENDING` round, calls
 `/speckit.answering`, and feeds the `ANSWERED` answers back into clarify **as if they were the
-human's replies** — so clarify encodes them into `spec.md` exactly as usual. Only `NEEDS-HUMAN`
-items ever reach a person, asked **directly in Claude Code**.
+human's replies** — so clarify encodes them into `spec.md` exactly as usual. (Because stock
+clarify asks **one adaptive question at a time**, run one `PENDING`/`ANSWERED` round **per
+question**, not a fixed batch.) Only `NEEDS-HUMAN` items ever reach a person, asked **directly in
+Claude Code**.
 
 **Both `/speckit.clarify` and `/speckit.flowing` must wait for `/speckit.answering` to answer.**
 Nothing advances while a round is still `PENDING`: clarify holds each question open until its
@@ -136,9 +149,10 @@ question, and no guessing while you wait.
    Q1: What is the session retry limit?
    Q2: Which roles can delete an account?
    ```
-3. **Hand the round to `/speckit.answering`.** It reads `specs/<slug>/*`, answers **only from
-   the documents** with a source tag for each answer, and **appends a matching `ANSWERED`
-   round** (`A1, A2…` aligned to the `Q#`):
+3. **Hand the round to `/speckit.answering`** (invoke it in the **main thread** via `SlashCommand`,
+   not a background subagent — it may need to ask the human). It reads `specs/<slug>/*`, answers
+   **only from the documents** with a source tag for each answer, and **appends a matching
+   `ANSWERED` round** (`A1, A2…` aligned to the `Q#`):
    ```markdown
    ## Round 2 — 2026-06-29 — status: ANSWERED — by: thinking
    A1: 3 attempts, then a 15-minute lock.   [source: design.md §Failure handling]
@@ -147,11 +161,13 @@ question, and no guessing while you wait.
 4. **Re-read `questions.md`** — not just the returned message — and feed the `ANSWERED` items
    into **`/speckit.clarify`** so they are written into `spec.md`.
 5. Items marked **`NEEDS-HUMAN`** (or **`CONFLICT / NEEDS-HUMAN`**) are the only ones that reach
-   a person. Each is asked **directly to the human in Claude Code**, one question at a time. The
-   human's **reply** is the answer. `/speckit.answering` **first** writes that answer into the
-   right document, and **only then** returns the question+answer to flowing as a normal
-   `ANSWERED` item — there is no re-asking, and the answer never disagrees with the documents
-   (see `spec-driven-development-answering.md`).
+   a person, asked **directly in Claude Code**, one question at a time. Because you call
+   `/speckit.answering` in the main thread, it asks the human, writes the answer into the right
+   document **first**, and returns a follow-up resolution round (`N+1`). If instead it **returns
+   unresolved `NEEDS-HUMAN` items** (it ran where it couldn't reach the human), **ask the human
+   yourself** and feed the reply back through `/speckit.answering` so the documents are updated
+   first. Feed only **resolved** answers into `/speckit.clarify`; a still-open `NEEDS-HUMAN` waits
+   for its `N+1` round (see `spec-driven-development-answering.md`).
 
 Every round stays in `questions.md`, so you always have a record of what was asked and how it
 was resolved.
@@ -207,6 +223,10 @@ cycle = ( (analyze → clarify) ×2 → plan → tasks )        (repeat the cycl
 | yes                                       | yes            | no                      | no              |
 | no                                        | no             | n/a                     | no              |
 
+**Skip-rule exception:** if `/speckit.analyze` flags a **made-file-level** defect in
+`plan.md`/`tasks.md`, regenerate that file this cycle **even if the skip rule would skip it** — a
+generation error won't fix itself, and an unchanged spec doesn't prove the made file is correct.
+
 In every loop the made files are **regenerated, never hand-patched**: if the plan or tasks are
 wrong, fix the spec and make them again.
 
@@ -227,8 +247,11 @@ re-confirming they are all present** (the preflight in step 1) before doing any 
 *Before you start* are met: **`spec.md`** and **all the thinking documents** (`brd.md`,
 `design.md`, `bdd.md`, `tdd.md`, `dod.md`, `questions.md`) exist. If any is missing, **STOP the
 whole process here in step 1** and run the missing prerequisite first (`/speckit.specify` for a
-missing `spec.md`, `/speckit.thinking` for missing thinking docs). Do not create tickets or run
-any loop until they are all present.
+missing `spec.md`, `/speckit.thinking` for missing thinking docs). Also confirm the base SpecKit
+commands this flow calls are installed — `/speckit.plan`, `/speckit.tasks`, `/speckit.implement`,
+`/speckit.analyze`, `/speckit.clarify`, `/speckit.answering`, and `/speckit.thinking`; if any is
+missing, **STOP** and have it installed first. Do not create tickets or run any loop until they
+are all present.
 
 **What it is.** Turn the agreed scope into real work. This is the **very first action of
 flowing**. Make **Jira** tickets from **`brd.md`** (the business parts) and **`design.md`** (the
@@ -239,8 +262,9 @@ real tickets.
 - Carry the SpecKit source ref (e.g. `brd.md R3`, `design.md §Contracts`) onto each ticket so it
   is traceable back to the documents.
 - Keep the ticket IDs — `tasks.md` (Part 3) is matched back to these tickets.
-- If Jira is not configured, **ask first whether to skip Jira**: on **skip**, continue without
-  tickets; otherwise **stop here** and report it. Do not silently skip ticket creation.
+- Detect whether Jira is configured by the presence of a Jira MCP tool or the project's Jira
+  settings. If it is **not** configured, **ask first whether to skip Jira**: on **skip**, continue
+  without tickets; otherwise **stop here** and report it. Do not silently skip ticket creation.
 
 ### 2. Run the `ac-loop` on the spec
 **What it is.** With the tickets in place, run the **`ac-loop`** (cycle = `analyze → clarify`)
@@ -277,11 +301,12 @@ contract files (checked against the constitution rules if present). Then:
 Parts 4 and 5 are **one re-entrant loop.** Every check from here on — implement, tests, verify,
 `/review`, `/code-review` — feeds the same **recovery path**:
 
-> **Recovery path** — whenever a check turns up a bug or gap:
-> **(1)** copy that exact bug/gap text into **`/speckit.analyze`**, **(2)** run
-> **`/speckit.clarify`** (questions → `/speckit.answering`), **(3)** run the **`acpt-loop`**
-> until clean, then **(4) start again from step 5 (`implement`).** Fix from the spec down, never
-> as a quick code patch.
+> **Recovery path** — whenever a check turns up a bug or gap, route it **by cause.** If it traces
+> to a **spec gap**, turn it into a question through the mailbox (→ **`/speckit.answering`**) and
+> let **`/speckit.clarify`** apply the answer to `spec.md`. If it is a **made-file or code** error
+> against an already-correct spec, let the **`acpt-loop`** regenerate plan/tasks and **step 5**
+> re-implement it. Either way, run the **`acpt-loop`** until clean, then **start again from step 5
+> (`implement`).** Fix from the spec down, never as a quick code patch.
 
 ### 5. Run implement, then analyze and clarify
 **What it is.** Run **`/speckit.implement`** to do the tasks in `tasks.md` in order. Then run
@@ -294,7 +319,8 @@ Parts 4 and 5 are **one re-entrant loop.** Every check from here on — implemen
 ### 6. Generate the tests from `tdd.md` and run them
 **What it is.** During implementation, turn the plan in **`tdd.md`** into **real test files** in
 the right place (TDD), then **run them**. This is where the Markdown Red/Green plan becomes
-actual test code.
+actual test code. Note `tdd.md` is a thinking doc, **not** part of `tasks.md`, so **flowing writes
+these test files itself** — they are not produced by `/speckit.implement`'s task execution.
 - The tests marked **Red** in `tdd.md` must be **Green** now.
 - If any test exposes a bug or gap, **copy the failing test's bug/gap text** and take the
   **recovery path** (back to step 5).

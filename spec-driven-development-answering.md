@@ -1,8 +1,9 @@
-# `/speckit.thinking` (answering) — Answer questions from the documents
+# `/speckit.answering` — Answer questions from the documents
 
-> This is the **second job** of the `/speckit.thinking` command (the first job, writing the
-> documents, is in `spec-driven-development-thinking.md`).
-> `/speckit.flowing` calls this job when SpecKit's `analyze`/`clarify` raises a question.
+> This is the **answering job of `/speckit.thinking`**, run as its own command
+> **`/speckit.answering`** (the first job, writing the documents, is in
+> `spec-driven-development-thinking.md`).
+> `/speckit.flowing` calls it when SpecKit's `analyze`/`clarify` raises a question.
 > You answer **only from the thinking documents** — never from memory — log every round in
 > `questions.md`, and hand anything the documents can't answer (`NEEDS-HUMAN`) straight to the
 > human, asked **directly in Claude Code**.
@@ -11,10 +12,11 @@
 
 ## When this runs
 
-`/speckit.flowing` calls `/speckit.thinking` (usually as a sub-agent) whenever SpecKit's
-`analyze` or `clarify` raises questions about the feature. You answer them **from the
-documents**, so the human does not have to. Your final message **is** the answer that
-`/speckit.flowing` will use, so make it clean and self-contained.
+`/speckit.flowing` calls `/speckit.answering` (in the **main thread**, via the `SlashCommand`
+tool — it may need to ask the human) whenever SpecKit's `analyze` or `clarify` raises questions
+about the feature. You answer them **from the documents**, so the human does not have to. Your
+final message **is** the answer that `/speckit.flowing` will use, so make it clean and
+self-contained.
 
 **Keep every question and answer in `questions.md`.** Before you finish, write each question,
 its answer, the source(s), and the status into `specs/<NNN-feature-slug>/questions.md` as a
@@ -84,35 +86,43 @@ otherwise hand the recommendation back so the human decides.
 ## Escalating NEEDS-HUMAN to the human
 
 A `NEEDS-HUMAN` item is a question the documents cannot answer — it needs a real person. Ask it
-**directly in Claude Code**: put the question to the human in the session, they reply, and the
-answer is fed back into the documents so the question can be answered from them next time. No
-external service is involved.
+**directly in Claude Code**, feed the reply back into the documents, and only then hand it to
+flowing. No external service is involved.
 
-**1. Ask — one question at a time.**
-After you write the `ANSWERED` round to `questions.md`, take every item marked `NEEDS-HUMAN` or
-`CONFLICT / NEEDS-HUMAN` and **ask the human directly in Claude Code, one question per prompt**
-(never grouped). Each prompt carries the feature slug, the round and question ID, the question,
-the reason it needs a human, and which document should hold the answer. Answered items are
-**not** asked — only the ones that need a human.
+Asking the human needs an **interactive session**, so `/speckit.answering` must run in the **main
+thread** (invoked with the `SlashCommand` tool), **not** as a background `Task` subagent. Handle
+every `NEEDS-HUMAN` / `CONFLICT / NEEDS-HUMAN` item in **two phases, across two rounds:**
 
-```
-SpecKit needs a human — feature 003-account-delete · round 2 · Q4
-CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
-```
+**Phase 1 — log the gap (round `N`).** The `ANSWERED` round you just wrote already marks the item
+`NEEDS-HUMAN`; that is the honest state. **If you cannot reach the human** (you are running as a
+non-interactive subagent), **stop here** — do **not** invent an answer. Return the `NEEDS-HUMAN`
+items to `/speckit.flowing`, which asks the human in the main session and re-invokes you with the
+reply to do Phase 2.
 
-**2. Answer — the human's reply is the answer.**
-The human's reply in the session is taken as the answer. One prompt holds one question, so one
-reply resolves exactly one item — no ambiguity about which answer maps to which question.
+**Phase 2 — resolve it (new round `N+1`).** When you can reach the human (main thread), or the
+reply is already in your input (a re-invoke):
 
-**3. Apply — update the documents first, then answer flowing.**
-When the human replies, the **answering agent** does these **in order**:
-1. **Read the reply** — that is the human's answer (there is no re-asking).
-2. **First, run the thinking agent** to write that question and answer into the right document
-   (e.g. set the value in `design.md`, resolve the conflict in `brd.md`) using the review loop,
-   so the documents now contain the decision.
-3. **Only after the documents are updated, return the answer to `/speckit.flowing`** — turn it
-   into a normal question+answer (`ANSWERED`) item, write it into the `ANSWERED` round in
-   `questions.md`, and return it so flowing can feed it into `/speckit.clarify`.
+1. **Ask — one question at a time.** Ask the human directly, **one question per prompt** (never
+   grouped) — skip this if the reply is already provided. Each prompt carries the feature slug,
+   the round and question ID, the question, the reason it needs a human, and which document should
+   hold the answer.
+
+   ```
+   SpecKit needs a human — feature 003-account-delete · round 2 · Q4
+   CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
+   ```
+2. **Answer — the human's reply is the answer** (one prompt = one question = one resolution; no
+   re-asking).
+3. **Apply — update the documents first.** Run **`/speckit.thinking` in targeted mode** —
+   `TARGETED <slug>/<doc>: <the Q&A>` — to write the decision into the right document **and its
+   downstream dependents** via the review loop (not a full five-document regeneration). Name the
+   **topmost** document in the chain (`brd → design → bdd → tdd → dod`) that must change, so the
+   cascade reaches every affected doc — e.g. resolve a `brd.md`↔`design.md` conflict by targeting
+   **`brd.md`**, so the correction flows down to both.
+4. **Then log the resolution.** Append **one new round `N+1`** (status `ANSWERED`) that resolves
+   **all** of round `N`'s `NEEDS-HUMAN` items together — one `A#` per item, each referencing the
+   original round + question ID it resolves (e.g. "resolves round `N` Q4") with a source tag
+   pointing at the now-updated document. **Return round `N+1`** to `/speckit.flowing`.
 
 So the human only ever decides things the documents truly don't cover, that decision is written
 back into the thinking documents **first**, and only then handed to flowing — so the answer and
@@ -142,8 +152,10 @@ Q2: Which roles can delete an account?
 ## Output format
 
 First **append your `ANSWERED` round to `specs/<NNN-feature-slug>/questions.md`** (same round
-number, `A#` aligned to the round's `Q#`), then **return the same block** as your final message
-so `/speckit.flowing` can put it into `/speckit.clarify`:
+number, `A#` aligned to the round's `Q#`), then **return that round** as your final message so
+`/speckit.flowing` can put it into `/speckit.clarify` — **unless** it holds `NEEDS-HUMAN` items you
+go on to resolve in the same run (see *Escalating*), in which case return the **latest** round (the
+resolution `N+1`):
 
 ```markdown
 ## Round 2 — 2026-06-29 — status: ANSWERED — by: thinking
