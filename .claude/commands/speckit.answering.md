@@ -45,9 +45,9 @@ docs but must **not** substitute for a decision the docs should record. No answe
 3. **Only partly answered** → give the supported part, mark the rest **`NEEDS-HUMAN`**.
 4. **Not answered at all** → mark the whole question **`NEEDS-HUMAN`** and say what is missing and
    which document should hold it.
-5. **Never invent** scope, rules, numbers, or decisions. You do **not** edit the substantive
-   thinking docs on your own judgment — you always **append** to `questions.md`, and you change
-   the thinking docs only through the human/escalation path below.
+5. **Never invent** scope, rules, numbers, or decisions. Answering is **read-only by default** —
+   you only **append** to `questions.md`, and change the thinking docs through the escalation path
+   below.
 
 ## The questions.md mailbox
 
@@ -99,7 +99,7 @@ human's reply is already in your input (a re-invoke):
    Example:
 
    ```
-   SpecKit needs a human — feature <slug> · round <n> · Q4
+   SpecKit needs a human — feature 003-account-delete · round 2 · Q4
    CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
    ```
 2. The human's **reply is the answer** (one prompt = one question = one resolution; no re-asking).
