@@ -144,8 +144,9 @@ Made files (plan, tasks) are **regenerated, never hand-patched** — fix the spe
 8. Run **`/review`** (Claude Code's built-in review command) to review the code against `spec.md`
    for correct and safe contracts. Findings → recovery.
 9. Run **`/code-review`** (reviews the working diff for bugs + clean-up). Findings → recovery.
-10. **Loop the reviews** — **`/review` ↔ `/code-review`** — until both come back with no bugs/gaps,
-    **minimum 2 full cycles**. Any finding re-enters the recovery path (restart at step 5).
+10. **Loop the reviews** — **`/review` → `/code-review` → `/review`** — until both come back with no
+    bugs/gaps, **minimum 2 full cycles**. Any finding re-enters the recovery path (restart at step
+    5).
 
 When all loops and both reviews are CLEAN, the feature is **done** — report a summary (loops run,
 findings resolved, rounds logged, review status, tickets created).
