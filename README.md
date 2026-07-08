@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-    <a href="https://github.com/github/spec-kit/releases/latest"><img src="https://img.shields.io/github/v/release/github/spec-kit" alt="Latest Release"/></a>
-    <a href="https://github.com/github/spec-kit/stargazers"><img src="https://img.shields.io/github/stars/github/spec-kit?style=social" alt="GitHub stars"/></a>
-    <a href="https://github.com/github/spec-kit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/github/spec-kit" alt="License"/></a>
+    <a href="https://github.com/VaheHayrapetyan/spec-kit/releases/latest"><img src="https://img.shields.io/github/v/release/VaheHayrapetyan/spec-kit" alt="Latest Release"/></a>
+    <a href="https://github.com/VaheHayrapetyan/spec-kit/stargazers"><img src="https://img.shields.io/github/stars/VaheHayrapetyan/spec-kit?style=social" alt="GitHub stars"/></a>
+    <a href="https://github.com/VaheHayrapetyan/spec-kit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/VaheHayrapetyan/spec-kit" alt="License"/></a>
     <a href="https://github.github.io/spec-kit/"><img src="https://img.shields.io/badge/docs-GitHub_Pages-blue" alt="Documentation"/></a>
 </p>
 
@@ -45,10 +45,10 @@ Spec-Driven Development **flips the script** on traditional software development
 
 ### 1. Install Specify CLI
 
-Requires **[uv](https://docs.astral.sh/uv/)** ([install uv](./docs/install/uv.md)). Replace `vX.Y.Z` with the latest tag from [Releases](https://github.com/github/spec-kit/releases):
+Requires **[uv](https://docs.astral.sh/uv/)** ([install uv](./docs/install/uv.md)). Replace `vX.Y.Z` with the latest tag from [Releases](https://github.com/VaheHayrapetyan/spec-kit/releases):
 
 ```bash
-uv tool install specify-cli --from git+https://github.com/github/spec-kit.git@vX.Y.Z
+uv tool install specify-cli --from git+https://github.com/VaheHayrapetyan/spec-kit.git@vX.Y.Z
 ```
 
 See the [Installation Guide](./docs/installation.md) for alternative methods, verification, upgrade, and troubleshooting.
@@ -265,7 +265,7 @@ but refuse installation. Manage the stack with `specify bundle catalog list|add|
 
 Authors validate and package bundles locally. Distribution is hosting the built
 artifact and adding a catalog source; community bundle submissions use the
-[Bundle Submission](https://github.com/github/spec-kit/issues/new?template=bundle_submission.yml)
+[Bundle Submission](https://github.com/VaheHayrapetyan/spec-kit/issues/new?template=bundle_submission.yml)
 issue template so required component catalogs and install evidence can be reviewed:
 
 ```bash
@@ -648,7 +648,7 @@ Once the implementation is complete, test the application and resolve any runtim
 
 ## 💬 Support
 
-For support, please open a [GitHub issue](https://github.com/github/spec-kit/issues/new). We welcome bug reports, feature requests, and questions about using Spec-Driven Development.
+For support, please open a [GitHub issue](https://github.com/VaheHayrapetyan/spec-kit/issues/new). We welcome bug reports, feature requests, and questions about using Spec-Driven Development.
 
 ## 🙏 Acknowledgements
 
