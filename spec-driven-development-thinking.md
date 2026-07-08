@@ -10,14 +10,36 @@
 The `/speckit.thinking` command has two jobs:
 
 - **(a) Write the documents** (this document) — BRD, Design Doc, BDD, TDD plan (with Red/Green), DoD.
-- **(b) Answer questions** — when `/speckit.flowing` asks a question, the command answers it
-  from the documents, not from memory. **That job is described in its own document,
-  `spec-driven-development-answering.md`.**
+- **(b) Answer questions** — when `/speckit.flowing` asks a question, it is answered from the
+  documents, not from memory. That job runs as its **own command, `/speckit.answering`**, and is
+  described in **`spec-driven-development-answering.md`**.
 
 This document covers job (a): **writing the documents.**
 
 **Main rule:** make each document with a **review loop** (below) before you start the next one.
 A small mistake early becomes a big mistake later.
+
+---
+
+## Full mode vs targeted mode
+
+`/speckit.thinking` runs in one of two ways:
+
+- **Full mode (default).** You give it a feature (a description or an `NNN-feature-slug`) and it
+  writes or refreshes **all five** documents in order, each with the review loop below.
+- **Targeted mode.** `/speckit.answering` hands it a **single decision to record** — the input
+  starts with the marker **`TARGETED <slug>/<doc>:`** (naming the feature `<slug>` and the
+  document `<doc>`). In this mode it does **not** regenerate all five documents. Instead it:
+  1. writes the decision into the **named document** (`<doc>`) in `specs/<slug>/`, keeping every
+     stable ID;
+  2. **cascades downstream** — updates every document **below it in the chain**
+     (`brd → design → bdd → tdd → dod`) that the decision affects (a value set in `design.md`
+     usually needs matching updates in `bdd.md`, `tdd.md`, and `dod.md`; a resolved conflict almost
+     always cascades);
+  3. runs the review loop on **each document it touched** (not the whole set), then stops.
+  It leaves documents the decision does not affect untouched, and never renumbers IDs. This is how
+  a human answer to a `NEEDS-HUMAN` question is written back into the documents (see
+  `spec-driven-development-answering.md`).
 
 ---
 
@@ -202,10 +224,11 @@ screen. Starting the flow is the human's decision.
 
 ## Answering questions
 
-The command's **other job** — answering `/speckit.flowing`'s clarification questions from these
-documents, and logging them in `questions.md` — is documented separately in
-**`spec-driven-development-answering.md`**. It uses the same feature folder and the same
-documents this command writes.
+The **answering job** — answering `/speckit.flowing`'s clarification questions from these
+documents, and logging them in `questions.md` — runs as its **own command, `/speckit.answering`**,
+documented in **`spec-driven-development-answering.md`**. It uses the same feature folder and the
+same documents this command writes (and calls `/speckit.thinking` in **targeted mode** to write a
+human answer back into a document).
 
 ---
 
