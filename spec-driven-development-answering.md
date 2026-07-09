@@ -102,16 +102,25 @@ reply to do Phase 2.
 **Phase 2 — resolve it (new round `N+1`).** When you can reach the human (main thread), or the
 reply is already in your input (a re-invoke):
 
-1. **Ask — one question at a time.** Ask the human directly, **one question per prompt** (never
-   grouped) — skip this if the reply is already provided. Each prompt carries the feature slug,
-   the round and question ID, the question, the reason it needs a human, and which document should
-   hold the answer.
+1. **Ask — with the `AskUserQuestion` tool, never turn-ending free text.** A bare `?` question
+   with no tool call stops the turn and the next reply is misattributed to the wrong question, so
+   ask through the `AskUserQuestion` submit picker instead. **Batch up to 4** open items into one
+   call (loop in batches of 4 if there are more) — skip this if the reply is already provided. Each
+   question's text carries the feature slug, the round and question ID, the question, the reason it
+   needs a human, and which document should hold the answer; give 2–4 options — for a `CONFLICT`,
+   the conflicting values; for an **open** question, your best-guess candidates **as suggestions**
+   (lead with the one you'd recommend, as `/speckit.clarify` does). **Never invent scope or numbers
+   just to fill slots** — the auto-added free-form "Other" is where the human types the real answer
+   when none fit.
 
    ```
-   SpecKit needs a human — feature 003-account-delete · round 2 · Q4
-   CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
+   AskUserQuestion → question:
+     "SpecKit needs a human — feature 003-account-delete · round 2 · Q4.
+      CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
+      (Answer lands in brd.md R7.)"
+   options: ["30 min (brd.md R7)", "15 min (design.md §Auth)"]   ("Other" is added automatically)
    ```
-2. **Answer — the human's reply is the answer** (one prompt = one question = one resolution; no
+2. **Answer — the submitted selection is the answer** (one question = one resolution; no
    re-asking).
 3. **Apply — update the documents first.** Run **`/speckit.thinking` in targeted mode** —
    `TARGETED <slug>/<doc>: <the Q&A>` — to write the decision into the right document **and its
@@ -182,5 +191,6 @@ it (not the returned text) is the authoritative record.
 3. **A conflict between documents is a bug** — mark `CONFLICT / NEEDS-HUMAN`, never pick silently.
 4. **Never patch a document mid-answer** — recommend the fix and let the review loop handle it.
 5. **Every round is logged in `questions.md`** — append, never overwrite; the file is the truth.
-6. **Every `NEEDS-HUMAN` is asked directly to the human in Claude Code** — one question per
-   prompt; the reply is written back into the documents first, then handed to flowing.
+6. **Every `NEEDS-HUMAN` is asked directly to the human via the `AskUserQuestion` submit picker**
+   — batched (up to 4 per call), never a turn-ending free-text `?`; the reply is written back into
+   the documents first, then handed to flowing.

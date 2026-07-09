@@ -161,13 +161,15 @@ question, and no guessing while you wait.
 4. **Re-read `questions.md`** — not just the returned message — and feed the `ANSWERED` items
    into **`/speckit.clarify`** so they are written into `spec.md`.
 5. Items marked **`NEEDS-HUMAN`** (or **`CONFLICT / NEEDS-HUMAN`**) are the only ones that reach
-   a person, asked **directly in Claude Code**, one question at a time. Because you call
-   `/speckit.answering` in the main thread, it asks the human, writes the answer into the right
-   document **first**, and returns a follow-up resolution round (`N+1`). If instead it **returns
-   unresolved `NEEDS-HUMAN` items** (it ran where it couldn't reach the human), **ask the human
-   yourself** and feed the reply back through `/speckit.answering` so the documents are updated
-   first. Feed only **resolved** answers into `/speckit.clarify`; a still-open `NEEDS-HUMAN` waits
-   for its `N+1` round (see `spec-driven-development-answering.md`).
+   a person, asked **directly in Claude Code via the `AskUserQuestion` submit picker** — batched
+   (up to 4 per call), never a turn-ending free-text `?` (which stops the turn and misattributes
+   the next reply). Because you call `/speckit.answering` in the main thread, it asks the human,
+   writes the answer into the right document **first**, and returns a follow-up resolution round
+   (`N+1`). If instead it **returns unresolved `NEEDS-HUMAN` items** (it ran where it couldn't
+   reach the human), **ask the human yourself via `AskUserQuestion`** and feed the reply back
+   through `/speckit.answering` so the documents are updated first. Feed only **resolved** answers
+   into `/speckit.clarify`; a still-open `NEEDS-HUMAN` waits for its `N+1` round (see
+   `spec-driven-development-answering.md`).
 
 Every round stays in `questions.md`, so you always have a record of what was asked and how it
 was resolved.
@@ -262,9 +264,22 @@ real tickets.
 - Carry the SpecKit source ref (e.g. `brd.md R3`, `design.md §Contracts`) onto each ticket so it
   is traceable back to the documents.
 - Keep the ticket IDs — `tasks.md` (Part 3) is matched back to these tickets.
+- Create every ticket in the board's normal **starting status** (`To Do` / `Backlog`). Do **not**
+  advance it here — status moves happen later (see *Jira status* below).
 - Detect whether Jira is configured by the presence of a Jira MCP tool or the project's Jira
-  settings. If it is **not** configured, **ask first whether to skip Jira**: on **skip**, continue
-  without tickets; otherwise **stop here** and report it. Do not silently skip ticket creation.
+  settings. If it is **not** configured, **ask first whether to skip Jira** — through the
+  `AskUserQuestion` picker (*Skip Jira and continue* / *Stop and report*), not a turn-ending
+  free-text prompt: on **skip**, continue without tickets; otherwise **stop here** and report it.
+  Do not silently skip ticket creation.
+
+**Jira status — the lifecycle.** Flowing moves each ticket through exactly this path and **no
+further**: `To Do` / `Backlog` (created here, step 1) → **`In Progress`** (when its work begins in
+the implement step) → **`Review`** (when the feature is done — all loops and both reviews CLEAN).
+**`Review` is the terminal status flowing sets; never advance a ticket beyond it** — no `Done`,
+`Closed`, `Resolved`, `Deployed`, `Ready for Release`, or any post-`Review` status. A human owns
+everything after `Review`. Touch a ticket's status only at those three points; otherwise leave it
+alone. **If Jira was skipped or is not configured, there are no tickets — skip every status move
+silently** (they are no-ops, not errors).
 
 ### 2. Run the `ac-loop` on the spec
 **What it is.** With the tickets in place, run the **`ac-loop`** (cycle = `analyze → clarify`)
@@ -309,7 +324,9 @@ Parts 4 and 5 are **one re-entrant loop.** Every check from here on — implemen
 > (`implement`).** Fix from the spec down, never as a quick code patch.
 
 ### 5. Run implement, then analyze and clarify
-**What it is.** Run **`/speckit.implement`** to do the tasks in `tasks.md` in order. Then run
+**What it is.** Run **`/speckit.implement`** to do the tasks in `tasks.md` in order. As a ticket's
+work begins, move that ticket from `To Do` to **`In Progress`** — every ticket you implement, not
+just the first (see *Jira status*). Then run
 **`/speckit.analyze`** on the implementation (against the spec, plan, and tasks) and
 **`/speckit.clarify`**.
 - If they return **no bugs and no gaps** → continue to step 6.
@@ -375,6 +392,11 @@ clean result after many loops, not after one try. Any bug/gap from either review
 recovery path and restarts at step 5; the reviews only "pass" when a full `/review` **and**
 `/code-review` both come back clean.
 
+**When it's done.** Once all loops and both reviews are CLEAN, move each completed ticket to
+**`Review`** — its terminal status (see *Jira status*) — and **never advance it further**. Then
+report the summary (loops run, findings resolved, rounds logged, review status, tickets and their
+final status).
+
 ---
 
 ## Cheat sheet
@@ -385,16 +407,17 @@ recovery path and restarts at step 5; the reviews only "pass" when a full `/revi
 | pre  | —    | constitution  | `/speckit.constitution` *(optional)*                                                                    |
 | pre  | —    | spec          | `/speckit.specify` (give `brd.md` + `design.md`) *(required)*                                           |
 | pre  | —    | checklist     | `/speckit.checklist <area>` *(optional)*                                                                |
-| 1    | 1    | Jira tickets  | from `brd.md` + `design.md` (first step)                                                                |
+| 1    | 1    | Jira tickets  | from `brd.md` + `design.md` (first step); create in `To Do` / `Backlog`                                 |
 | 1    | 2    | Harden spec   | **ac-loop**: cycle = `analyze → clarify` (min 3×)                                                       |
 | 2    | 3    | Plan          | `/speckit.plan` → analyze(`plan.md`) → clarify → **acp-loop** (skip plan if spec unchanged)             |
 | 3    | 4    | Tasks         | `/speckit.tasks` (input: Jira tickets) → analyze(`tasks.md`) → clarify → **acpt-loop** (skip per rules) |
-| 4    | 5    | Implement     | `/speckit.implement` → analyze(with implementation) → clarify                                           |
+| 4    | 5    | Implement     | ticket → `In Progress`; `/speckit.implement` → analyze(with implementation) → clarify                   |
 | 4    | 6    | Tests         | generate from `tdd.md` **during implement** → run → Red must be Green                                   |
 | 4    | 7    | Verify        | code vs `dod/design/brd/bdd/tdd/questions` (document by document)                                       |
 | 5    | 8    | Review        | `/review` → copy any finding → recovery                                                                 |
 | 5    | 9    | Code-review   | `/code-review` → copy any finding → recovery                                                            |
 | 5    | 10   | Loop reviews  | `/review` → `/code-review` → `/review` (full cycle min 2×)                                              |
+| 5    | done | Finish        | ticket → `Review` (terminal — never past it); report summary                                            |
 | 4–5  | rec  | Recovery path | any bug/gap → copy → `/speckit.analyze` → clarify → **acpt-loop** → back to step 5                      |
 
 ---
@@ -409,10 +432,12 @@ recovery path and restarts at step 5; the reviews only "pass" when a full `/revi
    with the skip rules for unchanged `spec.md`/`plan.md`.
 3. **Questions go to `/speckit.answering`** — flowing wraps stock clarify and routes its
    questions through the `questions.md` mailbox; never answer from memory. The human only sees
-   `NEEDS-HUMAN` items (asked directly in Claude Code), and the answer is written back into the
-   documents first.
+   `NEEDS-HUMAN` items (asked directly via the `AskUserQuestion` submit picker — batched, never a
+   turn-ending free-text `?`), and the answer is written back into the documents first.
 4. **The made files are easy to throw away. The spec is the source.** Fix the spec, then
    regenerate plan and tasks — never hand-patch them.
 5. **One recovery path, always back to implement.** Tests, verification, `/review`, and
    `/code-review` all funnel any bug/gap through the `acpt-loop` and restart at Part 4, step 5.
 6. **Clean after many loops, not after one try.** The DoD says "done", not your feeling.
+7. **Jira status stops at `Review`.** Tickets move `To Do` → `In Progress` → `Review` and no
+   further — flowing **never** advances a ticket past `Review` (no `Done`/`Closed`/`Deployed`).

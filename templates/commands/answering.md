@@ -1,7 +1,7 @@
 ---
 description: Answer /speckit.flowing's clarification questions ONLY from the thinking documents; log every round in questions.md; escalate NEEDS-HUMAN by asking the human directly.
 argument-hint: <NNN-feature-slug> + questions (or the latest PENDING round)
-allowed-tools: Read, Write, Edit, Grep, Glob, Task, SlashCommand
+allowed-tools: Read, Write, Edit, Grep, Glob, Task, SlashCommand, AskUserQuestion
 ---
 
 ## User Input
@@ -93,16 +93,28 @@ re-invoke you with the reply to do Phase 2.
 
 **Phase 2 — resolve it (new round `N+1`).** When you can reach the human (main thread) **or** the
 human's reply is already in your input (a re-invoke):
-1. **Ask the human directly, one question per prompt** (never grouped) — **skip this step if the
-   reply is already provided**. Each prompt carries the feature slug, round + question ID, the
-   question, why it needs a human, and which document should hold the answer. No external service.
-   Example:
+1. **Ask the human with the `AskUserQuestion` tool — never as free text that ends your turn**
+   (a bare `?` question with no tool call stops the turn and the next reply is misattributed).
+   **Skip this step if the reply is already provided.** **Batch up to 4** open `NEEDS-HUMAN` /
+   `CONFLICT` items into a **single** `AskUserQuestion` call (loop in batches of 4 if there are
+   more); do **not** stop the turn between items. Each question's text carries the feature slug,
+   round + question ID, the question, why it needs a human, and which document should hold the
+   answer; give **2–4 options** — for a `CONFLICT`, the conflicting values; for an **open** question,
+   your best-guess candidate answers **as suggestions, not the only choices** (lead with the one
+   you'd recommend and a one-line why, as `/speckit.clarify` does). **Never invent scope, numbers,
+   or decisions just to fill option slots** — the tool always adds a free-form "Other", which is
+   where the human types the real answer when none of your suggestions fit. The submitted selection
+   is the answer. No external service. Example (one question in the batch):
 
    ```
-   SpecKit needs a human — feature 003-account-delete · round 2 · Q4
-   CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
+   AskUserQuestion → question:
+     "SpecKit needs a human — feature 003-account-delete · round 2 · Q4.
+      CONFLICT: brd.md R7 says 30 min, design.md §Auth says 15 min. Which is correct?
+      (Answer lands in brd.md R7.)"
+   options: ["30 min (brd.md R7)", "15 min (design.md §Auth)"]   ("Other" is added automatically)
    ```
-2. The human's **reply is the answer** (one prompt = one question = one resolution; no re-asking).
+2. The human's **submitted selection is the answer** (one question = one answer = one resolution;
+   no re-asking).
 3. **Update the documents first:** run **`/speckit.thinking TARGETED <slug>/<doc>: <the Q&A>`**
    (include the feature **slug** so it edits the right `specs/<slug>/` folder) to write the
    decision into the right document **and its downstream dependents** via the review loop, so the
@@ -127,5 +139,6 @@ loop first, then re-answering. Only fix in the same run if `/speckit.flowing` ex
 3. A conflict between documents is a bug → `CONFLICT / NEEDS-HUMAN`, never pick silently.
 4. Never patch a document mid-answer — recommend the fix, let the review loop handle it.
 5. Every round is logged in `questions.md` — append, never overwrite; the file is the truth.
-6. Every `NEEDS-HUMAN` is asked directly to the human in Claude Code; the reply is written back
-   into the documents first, then handed to flowing.
+6. Every `NEEDS-HUMAN` is asked directly to the human via the `AskUserQuestion` submit picker
+   (batched, never a turn-ending free-text `?`); the reply is written back into the documents
+   first, then handed to flowing.

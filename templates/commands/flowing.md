@@ -1,7 +1,7 @@
 ---
 description: Drive a feature from spec.md to done — Jira tickets, ac/acp/acpt spec-loops, implement, verify vs the thinking docs, then /review + /code-review. Routes every question to /speckit.answering.
 argument-hint: <NNN-feature-slug>
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task, SlashCommand
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task, SlashCommand, AskUserQuestion
 ---
 
 ## User Input
@@ -72,8 +72,10 @@ Mailbox protocol:
    `PENDING`/`ANSWERED` round **per question** rather than assuming a fixed batch.)
 5. `NEEDS-HUMAN` / `CONFLICT` items are the only ones a person sees. Because you called answering
    in the main thread, it asks the human directly and writes the answer into the documents first;
-   if it instead **returns unresolved `NEEDS-HUMAN` items**, **ask the human yourself in the main
-   session**, then feed the reply back through answering so the documents are updated first.
+   if it instead **returns unresolved `NEEDS-HUMAN` items**, **ask the human yourself via the
+   `AskUserQuestion` tool** (batched, up to 4 per call, submit UI — never a free-text `?` question
+   that ends your turn), then feed the reply back through answering so the documents are updated
+   first.
 
 ## "CLEAN" and the spec-loops
 
@@ -102,9 +104,12 @@ Made files (plan, tasks) are **regenerated, never hand-patched** — fix the spe
 ### Part 1 — Tickets + spec
 1. **Jira tickets (first action).** Create Jira tickets from `brd.md` (business → Stories) and
    `design.md` (technical → Tasks/Sub-tasks), carrying the SpecKit source ref (`R#`, `design §…`)
-   for traceability, so plan/tasks map onto real tickets. Detect whether Jira is configured by the
-   presence of a Jira MCP tool or the project's Jira settings; if absent, treat it as not
-   configured and **ask the human whether to skip Jira**: on skip, continue without tickets;
+   for traceability, so plan/tasks map onto real tickets. Create every ticket in the board's
+   normal **starting status** (`To Do` / `Backlog`) — do **not** advance it here (status moves come
+   later; see *Jira status*). Detect whether Jira is configured by the presence of a Jira MCP tool
+   or the project's Jira settings; if absent, treat it as not configured and **ask the human
+   whether to skip Jira** — via the `AskUserQuestion` tool (options: *Skip Jira and continue* /
+   *Stop and report*), never a turn-ending free-text prompt: on skip, continue without tickets;
    otherwise stop and report. Never silently skip.
 2. Run the **ac-loop** on `spec.md` until CLEAN (min 3×).
 
@@ -127,7 +132,9 @@ Made files (plan, tasks) are **regenerated, never hand-patched** — fix the spe
 > re-implement it. Either way, run the **acpt-loop** until CLEAN (its `analyze` re-checks the fix),
 > then **restart at step 5**. Fix from the spec down — never a hand-written code patch.
 
-5. **`/speckit.implement`** the tasks in order, then **`/speckit.analyze`** on the implementation
+5. **`/speckit.implement`** the tasks in order — as **each** ticket's work begins, move **that**
+   ticket to **`In Progress`** (every ticket you implement, not just the first; see *Jira status*).
+   Then **`/speckit.analyze`** on the implementation
    (against spec, plan, tasks) + **`/speckit.clarify`**. CLEAN → step 6; any bug/gap → recovery.
 6. **Generate the tests** from `tdd.md` into real test files and **run them** — do this **during
    the implement phase**. `tdd.md` is a thinking doc, **not** part of `tasks.md`, so **flowing
@@ -148,14 +155,32 @@ Made files (plan, tasks) are **regenerated, never hand-patched** — fix the spe
     bugs/gaps, **minimum 2 full cycles**. Any finding re-enters the recovery path (restart at step
     5).
 
-When all loops and both reviews are CLEAN, the feature is **done** — report a summary (loops run,
-findings resolved, rounds logged, review status, tickets created).
+When all loops and both reviews are CLEAN, the feature is **done** — move each completed ticket to
+**`Review`** (see *Jira status*), then report a summary (loops run, findings resolved, rounds
+logged, review status, tickets created and their final status).
+
+## Jira status
+
+Flowing moves each ticket through exactly this lifecycle and **no further**:
+
+`To Do` / `Backlog` (created, step 1) → `In Progress` (its work begins, step 5) → `Review` (feature
+done, all loops + both reviews CLEAN).
+
+**`Review` is the terminal status flowing sets — never advance a ticket beyond it.** Do **not** move
+any ticket to `Done`, `Closed`, `Resolved`, `Deployed`, `Ready for Release`, or any post-`Review`
+status; a human owns everything after `Review`. Only touch a ticket's status at these three points;
+leave it otherwise.
+
+**If Jira was skipped or is not configured** (step 1), there are **no tickets** — so **skip every
+status move** (`In Progress` at step 5, `Review` at done) silently; they are no-ops, not errors.
 
 ## Remember
 1. Preflight first — no `spec.md`/thinking docs, no flow.
 2. Analyze-first loops, min 3×, until CLEAN, with the plan/tasks skip rules.
 3. Questions go to `/speckit.answering` via `questions.md`; wait for `ANSWERED`; `NEEDS-HUMAN` is
-   asked directly in Claude Code; the answer is written into the documents first.
+   asked directly via the `AskUserQuestion` submit picker (batched, never a turn-ending free-text
+   `?`); the answer is written into the documents first.
 4. The spec is the source — fix the spec, regenerate plan/tasks; never hand-patch made files.
 5. One recovery path — every bug/gap funnels through the acpt-loop and restarts at step 5.
 6. Done means the DoD gates pass, not a feeling.
+7. Jira status: `To Do`→`In Progress`→`Review` only; **never advance a ticket past `Review`**.
