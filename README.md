@@ -45,10 +45,10 @@ Spec-Driven Development **flips the script** on traditional software development
 
 ### 1. Install Specify CLI
 
-Requires **[uv](https://docs.astral.sh/uv/)** ([install uv](./docs/install/uv.md)). Replace `vX.Y.Z` with the latest tag from [Releases](https://github.com/VaheHayrapetyan/spec-kit/releases):
+Requires **[uv](https://docs.astral.sh/uv/)** ([install uv](./docs/install/uv.md)). This installs the latest code from the `main` branch:
 
 ```bash
-uv tool install specify-cli --from git+https://github.com/VaheHayrapetyan/spec-kit.git@vX.Y.Z
+uv tool install specify-cli --from git+https://github.com/VaheHayrapetyan/spec-kit.git@main
 ```
 
 See the [Installation Guide](./docs/installation.md) for alternative methods, verification, upgrade, and troubleshooting.
@@ -87,6 +87,28 @@ Use the **`/speckit.constitution`** command to create your project's governing p
 ```bash
 /speckit.constitution Create principles focused on code quality, testing standards, user experience consistency, and performance requirements
 ```
+
+### Enhanced flow (this fork): thinking → specify → flowing
+
+> [!NOTE]
+> This fork adds the `/speckit.thinking`, `/speckit.answering`, and `/speckit.flowing` commands. Use this end-to-end flow to go from a hand-written business brief all the way to verified, reviewed code. Run it in place of the standard steps 4–7 below.
+
+1. **Write `brd.md` yourself.** Author the business requirements / business-logic document by hand — this is the human-owned source of intent that everything else derives from.
+2. **Run `/speckit.thinking`.** It generates the rest of the thinking documents (`design.md`, `bdd.md`, `tdd.md`, `dod.md`) from your `brd.md`, each built through a review loop until clean.
+
+   ```bash
+   /speckit.thinking <NNN-feature-slug>
+   ```
+3. **Run `/speckit.specify`** using the thinking-generated `design.md` and `brd.md` to produce `spec.md`.
+
+   ```bash
+   /speckit.specify Build the feature described in brd.md and design.md
+   ```
+4. **Run `/speckit.flowing`** to drive the feature from `spec.md` to done — Jira tickets, the ac/acp/acpt spec-loops, implement, verify against the thinking docs, then `/review` + `/code-review`.
+
+   ```bash
+   /speckit.flowing <NNN-feature-slug>
+   ```
 
 ### 4. Create the spec
 
