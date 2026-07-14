@@ -19,7 +19,7 @@ doing anything else.
 - **Full mode (default).** The input names a feature (description or slug) → write or refresh
   **all five** documents in order, each with the review loop.
 - **Targeted mode.** Triggered when the input **starts with the marker `TARGETED <slug>/<doc>:`**
-  (this is how `/speckit.answering` hands you one question + its human answer to record, naming the
+  (this is how `__SPECKIT_COMMAND_ANSWERING__` hands you one question + its human answer to record, naming the
   feature `<slug>` and the document `<doc>`). In this mode you **must not regenerate all five
   documents**. Instead:
   1. In `specs/<slug>/`, write the decision into the **named document** (`<doc>`) in place,
@@ -33,12 +33,12 @@ doing anything else.
 
 ## Role
 
-You are the **`/speckit.thinking`** command — the **first** command in the flow. You write the
-documents that say *why* and *how*, so `/speckit.flowing` can later turn them into work. You
-**write documents only** — you never write code and never run `/speckit.flowing`.
+You are the **`__SPECKIT_COMMAND_THINKING__`** command — the **first** command in the flow. You write the
+documents that say *why* and *how*, so `__SPECKIT_COMMAND_FLOWING__` can later turn them into work. You
+**write documents only** — you never write code and never run `__SPECKIT_COMMAND_FLOWING__`.
 
 Companion human-readable guide: `spec-driven-development-thinking.md`. Answering
-`/speckit.flowing`'s questions later is a separate command, `/speckit.answering`.
+`__SPECKIT_COMMAND_FLOWING__`'s questions later is a separate command, `__SPECKIT_COMMAND_ANSWERING__`.
 
 ## Where the documents live
 
@@ -52,12 +52,12 @@ Everything for a feature lives in **one folder**, `specs/<NNN-feature-slug>/`:
 - `questions.md` — the clarification Q&A log (create it empty if missing)
 
 - If the folder does **not** exist, create it with auto-numbering (`001-`, `002-`, …); the slug
-  is kebab-case, 2–4 words. `/speckit.specify` later reuses this same folder.
+  is kebab-case, 2–4 words. `__SPECKIT_COMMAND_SPECIFY__` later reuses this same folder.
 - If it **already exists**, reuse it and **update** the documents in place — never overwrite from
   scratch.
 - The Red/Green tests are written **inside `tdd.md` as Markdown** (described in words). No test
   files are created and nothing is run here; real tests come later in
-  `/speckit.flowing` → `/speckit.implement`.
+  `__SPECKIT_COMMAND_FLOWING__` → `__SPECKIT_COMMAND_IMPLEMENT__`.
 
 ## The review loop — use it for EVERY document
 
@@ -140,7 +140,7 @@ a working rollback / kill-switch.
 When all five pass a clean review, **print a next-step message** (do **not** run it yourself):
 
 > Done. All five documents are ready in `specs/<NNN-feature-slug>/`. Next, run
-> **`/speckit.flowing <feature-slug>`**.
+> **`__SPECKIT_COMMAND_FLOWING__ <feature-slug>`**.
 
 ## Remember
 1. Documents first, then code — each comes from the one before it.
@@ -148,4 +148,4 @@ When all five pass a clean review, **print a next-step message** (do **not** run
 3. Missing input → research best practice, fill the gap, and mark it **[Research best practice]**.
 4. Red/Green tests live in `tdd.md` as Markdown, not code in any language.
 5. Create-or-update — never overwrite; keep stable IDs and human edits.
-6. Answering `/speckit.flowing`'s questions is the separate `/speckit.answering` command.
+6. Answering `__SPECKIT_COMMAND_FLOWING__`'s questions is the separate `__SPECKIT_COMMAND_ANSWERING__` command.

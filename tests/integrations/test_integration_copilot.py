@@ -151,10 +151,11 @@ class TestCopilotIntegration:
         agents_dir = tmp_path / ".github" / "agents"
         assert agents_dir.is_dir()
         agent_files = sorted(agents_dir.glob("speckit.*.agent.md"))
-        assert len(agent_files) == 10
+        assert len(agent_files) == 13
         expected_commands = {
             "analyze", "clarify", "constitution", "converge", "implement",
             "plan", "checklist", "specify", "tasks", "taskstoissues",
+            "thinking", "answering", "flowing",
         }
         actual_commands = {f.name.removeprefix("speckit.").removesuffix(".agent.md") for f in agent_files}
         assert actual_commands == expected_commands
@@ -218,6 +219,9 @@ class TestCopilotIntegration:
         actual = sorted(p.relative_to(project).as_posix() for p in project.rglob("*") if p.is_file() and ".git" not in p.parts)
         expected = sorted([
             ".github/agents/speckit.analyze.agent.md",
+            ".github/agents/speckit.answering.agent.md",
+            ".github/agents/speckit.flowing.agent.md",
+            ".github/agents/speckit.thinking.agent.md",
             ".github/agents/speckit.checklist.agent.md",
             ".github/agents/speckit.clarify.agent.md",
             ".github/agents/speckit.constitution.agent.md",
@@ -228,6 +232,9 @@ class TestCopilotIntegration:
             ".github/agents/speckit.tasks.agent.md",
             ".github/agents/speckit.taskstoissues.agent.md",
             ".github/prompts/speckit.analyze.prompt.md",
+            ".github/prompts/speckit.answering.prompt.md",
+            ".github/prompts/speckit.flowing.prompt.md",
+            ".github/prompts/speckit.thinking.prompt.md",
             ".github/prompts/speckit.checklist.prompt.md",
             ".github/prompts/speckit.clarify.prompt.md",
             ".github/prompts/speckit.constitution.prompt.md",
@@ -279,6 +286,9 @@ class TestCopilotIntegration:
         actual = sorted(p.relative_to(project).as_posix() for p in project.rglob("*") if p.is_file() and ".git" not in p.parts)
         expected = sorted([
             ".github/agents/speckit.analyze.agent.md",
+            ".github/agents/speckit.answering.agent.md",
+            ".github/agents/speckit.flowing.agent.md",
+            ".github/agents/speckit.thinking.agent.md",
             ".github/agents/speckit.checklist.agent.md",
             ".github/agents/speckit.clarify.agent.md",
             ".github/agents/speckit.constitution.agent.md",
@@ -289,6 +299,9 @@ class TestCopilotIntegration:
             ".github/agents/speckit.tasks.agent.md",
             ".github/agents/speckit.taskstoissues.agent.md",
             ".github/prompts/speckit.analyze.prompt.md",
+            ".github/prompts/speckit.answering.prompt.md",
+            ".github/prompts/speckit.flowing.prompt.md",
+            ".github/prompts/speckit.thinking.prompt.md",
             ".github/prompts/speckit.checklist.prompt.md",
             ".github/prompts/speckit.clarify.prompt.md",
             ".github/prompts/speckit.constitution.prompt.md",
@@ -374,6 +387,7 @@ class TestCopilotSkillsMode:
     _SKILL_COMMANDS = [
         "analyze", "clarify", "constitution", "converge", "implement",
         "plan", "checklist", "specify", "tasks", "taskstoissues",
+        "thinking", "answering", "flowing",
     ]
 
     def _make_copilot(self):

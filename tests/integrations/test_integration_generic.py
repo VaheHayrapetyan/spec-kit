@@ -273,6 +273,9 @@ class TestGenericIntegration:
         )
         expected = sorted([
             ".myagent/commands/speckit.analyze.md",
+            ".myagent/commands/speckit.answering.md",
+            ".myagent/commands/speckit.flowing.md",
+            ".myagent/commands/speckit.thinking.md",
             ".myagent/commands/speckit.checklist.md",
             ".myagent/commands/speckit.clarify.md",
             ".myagent/commands/speckit.constitution.md",
@@ -329,6 +332,9 @@ class TestGenericIntegration:
         )
         expected = sorted([
             ".myagent/commands/speckit.analyze.md",
+            ".myagent/commands/speckit.answering.md",
+            ".myagent/commands/speckit.flowing.md",
+            ".myagent/commands/speckit.thinking.md",
             ".myagent/commands/speckit.checklist.md",
             ".myagent/commands/speckit.clarify.md",
             ".myagent/commands/speckit.constitution.md",
