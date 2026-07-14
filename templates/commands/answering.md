@@ -1,5 +1,5 @@
 ---
-description: Answer /speckit.flowing's clarification questions ONLY from the thinking documents; log every round in questions.md; escalate NEEDS-HUMAN by asking the human directly.
+description: Answer the flowing command's clarification questions ONLY from the thinking documents; log every round in questions.md; escalate NEEDS-HUMAN by asking the human directly.
 argument-hint: <NNN-feature-slug> + questions (or the latest PENDING round)
 allowed-tools: Read, Write, Edit, Grep, Glob, Task, SlashCommand, AskUserQuestion
 ---
@@ -17,10 +17,10 @@ unknown.
 
 ## Role
 
-You are the **`/speckit.answering`** command (the answering job of `/speckit.thinking`).
-`/speckit.flowing` calls you whenever `analyze`/`clarify` raises questions. You answer them
+You are the **`__SPECKIT_COMMAND_ANSWERING__`** command (the answering job of `__SPECKIT_COMMAND_THINKING__`).
+`__SPECKIT_COMMAND_FLOWING__` calls you whenever `analyze`/`clarify` raises questions. You answer them
 **only from the documents** — never from memory — so the human does not have to. Your final
-message **is** the answer `/speckit.flowing` will use; make it clean and self-contained.
+message **is** the answer `__SPECKIT_COMMAND_FLOWING__` will use; make it clean and self-contained.
 
 Companion human-readable guide: `spec-driven-development-answering.md`.
 
@@ -51,18 +51,18 @@ docs but must **not** substitute for a decision the docs should record. No answe
 
 ## The questions.md mailbox
 
-`/speckit.flowing` writes a `PENDING` round; you append a matching `ANSWERED` round. Fixed header:
+`__SPECKIT_COMMAND_FLOWING__` writes a `PENDING` round; you append a matching `ANSWERED` round. Fixed header:
 
 ```
 ## Round <n> — <date> — status: PENDING|ANSWERED — asked-by|by: <command>
 ```
 
 Use **today's date** for `<date>`. `ANSWERED` rounds are tagged **`by: thinking`** — answering is
-`/speckit.thinking`'s answering job, so the `by:` field names that job, not this command.
+`__SPECKIT_COMMAND_THINKING__`'s answering job, so the `by:` field names that job, not this command.
 
 **Append** your `ANSWERED` round to `specs/<NNN-feature-slug>/questions.md` (same round number,
 `A#` aligned to each `Q#`), then **return that round** as your final message so flowing can feed
-it into `/speckit.clarify` — **unless** it contains `NEEDS-HUMAN` items that you go on to resolve
+it into `__SPECKIT_COMMAND_CLARIFY__` — **unless** it contains `NEEDS-HUMAN` items that you go on to resolve
 in the same run (see *Escalating* below), in which case return the **latest** round (the
 resolution `N+1`). Never overwrite earlier rounds — the file grows downward and is the
 authoritative record. Example:
@@ -88,7 +88,7 @@ Handle every `NEEDS-HUMAN` / `CONFLICT / NEEDS-HUMAN` item in **two phases, acro
 **Phase 1 — log the gap (round `N`).** You have already written round `N` with the item marked
 `NEEDS-HUMAN`; that is the honest state. **If you cannot reach the human** (you are a
 non-interactive subagent), **stop here** — do **not** fabricate an answer. Return the
-`NEEDS-HUMAN` items to `/speckit.flowing`, which will ask the human in the main session and
+`NEEDS-HUMAN` items to `__SPECKIT_COMMAND_FLOWING__`, which will ask the human in the main session and
 re-invoke you with the reply to do Phase 2.
 
 **Phase 2 — resolve it (new round `N+1`).** When you can reach the human (main thread) **or** the
@@ -101,7 +101,7 @@ human's reply is already in your input (a re-invoke):
    round + question ID, the question, why it needs a human, and which document should hold the
    answer; give **2–4 options** — for a `CONFLICT`, the conflicting values; for an **open** question,
    your best-guess candidate answers **as suggestions, not the only choices** (lead with the one
-   you'd recommend and a one-line why, as `/speckit.clarify` does). **Never invent scope, numbers,
+   you'd recommend and a one-line why, as `__SPECKIT_COMMAND_CLARIFY__` does). **Never invent scope, numbers,
    or decisions just to fill option slots** — the tool always adds a free-form "Other", which is
    where the human types the real answer when none of your suggestions fit. The submitted selection
    is the answer. No external service. Example (one question in the batch):
@@ -115,7 +115,7 @@ human's reply is already in your input (a re-invoke):
    ```
 2. The human's **submitted selection is the answer** (one question = one answer = one resolution;
    no re-asking).
-3. **Update the documents first:** run **`/speckit.thinking TARGETED <slug>/<doc>: <the Q&A>`**
+3. **Update the documents first:** run **`__SPECKIT_COMMAND_THINKING__ TARGETED <slug>/<doc>: <the Q&A>`**
    (include the feature **slug** so it edits the right `specs/<slug>/` folder) to write the
    decision into the right document **and its downstream dependents** via the review loop, so the
    docs now contain it — **not** a full five-document regeneration. Name the **topmost** document
@@ -126,12 +126,12 @@ human's reply is already in your input (a re-invoke):
    **all** of round `N`'s `NEEDS-HUMAN` items together — one `A#` per item, each **referencing the
    original round + question ID** it resolves (e.g. "resolves round <N> Q4") with a source tag
    pointing at the now-updated document. Do **not** open a separate round per item. **Return round
-   `N+1`** to `/speckit.flowing`. The docs and the answer never disagree.
+   `N+1`** to `__SPECKIT_COMMAND_FLOWING__`. The docs and the answer never disagree.
 
 ## When a document is wrong or incomplete
 If answering reveals a document is wrong/outdated/contradictory, say so — do **not** quietly
 patch it mid-answer. Recommend fixing it (and everything below it in the chain) via the review
-loop first, then re-answering. Only fix in the same run if `/speckit.flowing` explicitly asked.
+loop first, then re-answering. Only fix in the same run if `__SPECKIT_COMMAND_FLOWING__` explicitly asked.
 
 ## Remember
 1. Answer from the documents, never a guess. Unknown → `NEEDS-HUMAN`.

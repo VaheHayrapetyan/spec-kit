@@ -459,6 +459,9 @@ class TomlIntegrationTests:
         "specify",
         "tasks",
         "taskstoissues",
+        "thinking",
+        "answering",
+        "flowing",
     ]
 
     def _expected_files(self, script_variant: str) -> list[str]:
